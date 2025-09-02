@@ -9,5 +9,10 @@
         "src",
     },
 
-    .dependencies = .{},
+    .dependencies = .{
+        .capstone = .{
+            .url = "git+https://github.com/capstone-engine/capstone.git#ff04ff1aa05199e999835d3464b5896582ec1c5f",
+            .hash = "N-V-__8AANMoLwWA43LKUAz0DSnW_DlOigArWpomgtbilrh6",
+        },
+    },
 }
