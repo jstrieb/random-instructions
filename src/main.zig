@@ -9,6 +9,7 @@ var allocator: std.mem.Allocator = undefined;
 const Args = struct {
     total_iterations: usize = 10_000_000,
     buffer_size: usize = 128,
+    disassembly_threshold: usize = 90,
 
     const Self = @This();
 
@@ -89,16 +90,24 @@ fn Capstone(arch: capstone.cs_arch, mode: c_int) type {
 
         pub fn disassemble(self: Self, b: []const u8) bool {
             var instructions: [*c]capstone.cs_insn = undefined;
-            const count = capstone.cs_disasm(
-                self.engine,
-                @ptrCast(b),
-                b.len,
-                0,
-                0,
-                &instructions,
-            );
-            defer capstone.cs_free(instructions, count);
-            return count > 0;
+            var total_count: usize = 0;
+            var current_offset: usize = 0;
+            while (current_offset < b.len) {
+                const input = b[current_offset..];
+                const count = capstone.cs_disasm(
+                    self.engine,
+                    @ptrCast(input),
+                    input.len,
+                    0,
+                    0,
+                    &instructions,
+                );
+                defer capstone.cs_free(instructions, count);
+                total_count += count * 2;
+                current_offset += count * 2 + 2;
+            }
+            return total_count > 0 and
+                100 * total_count / b.len >= args.disassembly_threshold;
         }
     };
 }
@@ -110,6 +119,7 @@ test "basic disassembly" {
     try std.testing.expect(cs.disassemble("\xe0\xf9\x4f\x07"));
     try std.testing.expect(cs.disassemble("\x00\x00"));
     try std.testing.expect(!cs.disassemble("\x00"));
+    try std.testing.expect(!cs.disassemble("\xff\xff\x00\x00"));
 }
 
 fn loop(iterations: usize, buffer_size: usize) !void {
@@ -168,6 +178,7 @@ pub fn main() !void {
     var thread_buffer: [1024]std.Thread = undefined;
     const threads = thread_buffer[0..thread_count];
     const iterations = args.total_iterations / thread_count;
+    args.total_iterations = iterations * thread_count;
     for (threads) |*t| {
         t.* = try std.Thread.spawn(
             .{},
