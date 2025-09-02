@@ -94,7 +94,8 @@ fn Capstone(arch: capstone.cs_arch, mode: c_int) type {
             _ = capstone.cs_close(&self.engine);
         }
 
-        pub fn disassemble(self: Self, b: []const u8, threshold: usize) bool {
+        pub fn disassemble(self: Self, b: []const u8) usize {
+            if (b.len == 0) return 0;
             var instructions: [*c]capstone.cs_insn = undefined;
             const count = capstone.cs_disasm(
                 self.engine,
@@ -111,8 +112,7 @@ fn Capstone(arch: capstone.cs_arch, mode: c_int) type {
                     instruction_bytes += i.size;
                 }
             }
-            return b.len > 0 and
-                100 * instruction_bytes / b.len >= threshold;
+            return 100 * instruction_bytes / b.len;
         }
     };
 }
@@ -121,11 +121,10 @@ test "basic disassembly" {
     var cs: Capstone(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB) = try .init();
     defer cs.deinit();
 
-    try std.testing.expect(cs.disassemble("\xe0\xf9\x4f\x07", 100));
-    try std.testing.expect(cs.disassemble("\x00\x00", 100));
-    try std.testing.expect(!cs.disassemble("\x00", 100));
-    try std.testing.expect(cs.disassemble("\xff\xff\x00\x00", 50));
-    try std.testing.expect(!cs.disassemble("\xff\xff\x00\x00", 51));
+    try std.testing.expectEqual(100, cs.disassemble("\xe0\xf9\x4f\x07"));
+    try std.testing.expectEqual(100, cs.disassemble("\x00\x00"));
+    try std.testing.expectEqual(0, cs.disassemble("\x00"));
+    try std.testing.expectEqual(50, cs.disassemble("\xff\xff\x00\x00"));
 }
 
 fn loop(iterations: usize, buffer_size: usize) !void {
@@ -152,7 +151,7 @@ fn loop(iterations: usize, buffer_size: usize) !void {
 
     for (0..iterations) |_| {
         random.bytes(in_buffer);
-        if (cs.disassemble(in_buffer, args.disassembly_threshold)) {
+        if (cs.disassemble(in_buffer) >= args.disassembly_threshold) {
             disasm_count += 1;
         }
 
@@ -165,7 +164,7 @@ fn loop(iterations: usize, buffer_size: usize) !void {
         )) {
             inflate_count += 1;
             const end = out_stream.getPos() catch unreachable;
-            if (cs.disassemble(out_buffer[0..end], args.disassembly_threshold)) {
+            if (cs.disassemble(out_buffer[0..end]) >= args.disassembly_threshold) {
                 inflate_disasm_count += 1;
             }
         } else |_| {}
