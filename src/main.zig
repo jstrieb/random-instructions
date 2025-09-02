@@ -4,7 +4,44 @@ const capstone = @cImport({
 });
 
 var stdout = std.io.getStdOut().writer();
-const total_iterations: usize = 10_000_000;
+
+const Args = struct {
+    total_iterations: usize = 10_000_000,
+
+    const Self = @This();
+
+    pub fn init() !Self {
+        var result = Self{};
+        var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
+        defer std.debug.assert(gpa.deinit() != .leak);
+        const allocator = gpa.allocator();
+        const all_args = try std.process.argsAlloc(allocator);
+        defer std.process.argsFree(allocator, all_args);
+        var i: usize = 0;
+        while (i < all_args.len) : (i += 1) {
+            const arg = all_args[i];
+            if (!std.mem.startsWith(u8, arg, "--")) {
+                continue;
+            }
+            std.mem.replaceScalar(u8, arg, '-', '_');
+            inline for (@typeInfo(Self).@"struct".fields) |field| {
+                if (std.mem.eql(u8, arg[2..], field.name)) {
+                    switch (field.type) {
+                        bool => @field(result, field.name) = true,
+                        usize => {
+                            @field(result, field.name) =
+                                try std.fmt.parseUnsigned(usize, all_args[i + 1], 0);
+                            i += 1;
+                        },
+                        else => unreachable,
+                    }
+                }
+            }
+        }
+        return result;
+    }
+};
+var args: Args = undefined;
 
 var results: struct {
     disasm_count: u64 = 0,
@@ -27,7 +64,7 @@ var results: struct {
         self.lock.lock();
         defer self.lock.unlock();
 
-        try stdout.print("{d:>10} Total\n", .{total_iterations});
+        try stdout.print("{d:>10} Total\n", .{args.total_iterations});
         try stdout.print("{d:>10} Disassembled\n", .{self.disasm_count});
         try stdout.print("{d:>10} Inflated\n", .{self.inflate_count});
         try stdout.print("{d:>10} Inflated then disassembled\n", .{self.inflate_disasm_count});
@@ -121,10 +158,12 @@ fn loop(iterations: usize) !void {
 }
 
 pub fn main() !void {
+    args = try .init();
+
     const thread_count = @min(std.Thread.getCpuCount() catch 1, 1024);
     var thread_buffer: [1024]std.Thread = undefined;
     const threads = thread_buffer[0..thread_count];
-    const iterations = total_iterations / thread_count;
+    const iterations = args.total_iterations / thread_count;
     for (threads) |*t| {
         t.* = try std.Thread.spawn(.{}, loop, .{iterations});
     }
