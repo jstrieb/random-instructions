@@ -4,17 +4,16 @@ const capstone = @cImport({
 });
 
 var stdout = std.io.getStdOut().writer();
+var allocator: std.mem.Allocator = undefined;
 
 const Args = struct {
     total_iterations: usize = 10_000_000,
+    buffer_size: usize = 128,
 
     const Self = @This();
 
     pub fn init() !Self {
         var result = Self{};
-        var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
-        defer std.debug.assert(gpa.deinit() != .leak);
-        const allocator = gpa.allocator();
         const all_args = try std.process.argsAlloc(allocator);
         defer std.process.argsFree(allocator, all_args);
         var i: usize = 0;
@@ -113,7 +112,7 @@ test "basic disassembly" {
     try std.testing.expect(!cs.disassemble("\x00"));
 }
 
-fn loop(iterations: usize) !void {
+fn loop(iterations: usize, buffer_size: usize) !void {
     var cs: Capstone(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB) = try .init();
     defer cs.deinit();
 
@@ -124,18 +123,20 @@ fn loop(iterations: usize) !void {
         break :random chacha.random();
     };
 
-    var in_buffer: [128]u8 = undefined;
-    var out_buffer: [64 * 1024]u8 = undefined;
-    var in_stream = std.io.fixedBufferStream(&in_buffer);
-    var out_stream = std.io.fixedBufferStream(&out_buffer);
+    const in_buffer = try allocator.alloc(u8, buffer_size);
+    defer allocator.free(in_buffer);
+    const out_buffer = try allocator.alloc(u8, buffer_size * 1024);
+    defer allocator.free(out_buffer);
+    var in_stream = std.io.fixedBufferStream(in_buffer);
+    var out_stream = std.io.fixedBufferStream(out_buffer);
 
     var disasm_count: u64 = 0;
     var inflate_count: u64 = 0;
     var inflate_disasm_count: u64 = 0;
 
     for (0..iterations) |_| {
-        random.bytes(&in_buffer);
-        if (cs.disassemble(&in_buffer)) {
+        random.bytes(in_buffer);
+        if (cs.disassemble(in_buffer)) {
             disasm_count += 1;
         }
 
@@ -158,6 +159,9 @@ fn loop(iterations: usize) !void {
 }
 
 pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
+    defer std.debug.assert(gpa.deinit() != .leak);
+    allocator = gpa.allocator();
     args = try .init();
 
     const thread_count = @min(std.Thread.getCpuCount() catch 1, 1024);
@@ -165,7 +169,11 @@ pub fn main() !void {
     const threads = thread_buffer[0..thread_count];
     const iterations = args.total_iterations / thread_count;
     for (threads) |*t| {
-        t.* = try std.Thread.spawn(.{}, loop, .{iterations});
+        t.* = try std.Thread.spawn(
+            .{},
+            loop,
+            .{ iterations, args.buffer_size },
+        );
     }
     for (threads) |t| {
         t.join();
