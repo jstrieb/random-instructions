@@ -11,8 +11,8 @@
 
     .dependencies = .{
         .capstone = .{
-            .url = "git+https://github.com/capstone-engine/capstone.git#ff04ff1aa05199e999835d3464b5896582ec1c5f",
-            .hash = "N-V-__8AANMoLwWA43LKUAz0DSnW_DlOigArWpomgtbilrh6",
+            .url = "git+https://github.com/capstone-engine/capstone.git?ref=5.0.6#accf4df62f1fba6f92cae692985d27063552601c",
+            .hash = "N-V-__8AANGaSwMtdoCi2jtkXMNc3tOnyLX2WyywfhDn_fJh",
         },
     },
 }

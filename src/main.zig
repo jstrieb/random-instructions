@@ -80,6 +80,13 @@ fn Capstone(arch: capstone.cs_arch, mode: c_int) type {
             if (capstone.cs_open(arch, mode, &engine) != capstone.CS_ERR_OK) {
                 return error.CapstoneInitFailed;
             }
+            if (capstone.cs_option(
+                engine,
+                capstone.CS_OPT_SKIPDATA,
+                capstone.CS_OPT_ON,
+            ) != capstone.CS_ERR_OK) {
+                return error.CapstoneInitFailed;
+            }
             return .{ .engine = engine };
         }
 
@@ -87,26 +94,25 @@ fn Capstone(arch: capstone.cs_arch, mode: c_int) type {
             _ = capstone.cs_close(&self.engine);
         }
 
-        pub fn disassemble(self: Self, b: []const u8) bool {
+        pub fn disassemble(self: Self, b: []const u8, threshold: usize) bool {
             var instructions: [*c]capstone.cs_insn = undefined;
-            var total_count: usize = 0;
-            var current_offset: usize = 0;
-            while (current_offset < b.len) {
-                const input = b[current_offset..];
-                const count = capstone.cs_disasm(
-                    self.engine,
-                    @ptrCast(input),
-                    input.len,
-                    0,
-                    0,
-                    &instructions,
-                );
-                defer capstone.cs_free(instructions, count);
-                total_count += count * 2;
-                current_offset += count * 2 + 2;
+            const count = capstone.cs_disasm(
+                self.engine,
+                @ptrCast(b),
+                b.len,
+                0,
+                0,
+                &instructions,
+            );
+            defer capstone.cs_free(instructions, count);
+            var instruction_bytes: usize = 0;
+            for (instructions, 0..count) |i, _| {
+                if (i.id != 0) {
+                    instruction_bytes += i.size;
+                }
             }
-            return total_count > 0 and
-                100 * total_count / b.len >= args.disassembly_threshold;
+            return b.len > 0 and
+                100 * instruction_bytes / b.len >= threshold;
         }
     };
 }
@@ -115,10 +121,11 @@ test "basic disassembly" {
     var cs: Capstone(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB) = try .init();
     defer cs.deinit();
 
-    try std.testing.expect(cs.disassemble("\xe0\xf9\x4f\x07"));
-    try std.testing.expect(cs.disassemble("\x00\x00"));
-    try std.testing.expect(!cs.disassemble("\x00"));
-    try std.testing.expect(!cs.disassemble("\xff\xff\x00\x00"));
+    try std.testing.expect(cs.disassemble("\xe0\xf9\x4f\x07", 100));
+    try std.testing.expect(cs.disassemble("\x00\x00", 100));
+    try std.testing.expect(!cs.disassemble("\x00", 100));
+    try std.testing.expect(cs.disassemble("\xff\xff\x00\x00", 50));
+    try std.testing.expect(!cs.disassemble("\xff\xff\x00\x00", 51));
 }
 
 fn loop(iterations: usize, buffer_size: usize) !void {
@@ -145,7 +152,7 @@ fn loop(iterations: usize, buffer_size: usize) !void {
 
     for (0..iterations) |_| {
         random.bytes(in_buffer);
-        if (cs.disassemble(in_buffer)) {
+        if (cs.disassemble(in_buffer, args.disassembly_threshold)) {
             disasm_count += 1;
         }
 
@@ -158,7 +165,7 @@ fn loop(iterations: usize, buffer_size: usize) !void {
         )) {
             inflate_count += 1;
             const end = out_stream.getPos() catch unreachable;
-            if (cs.disassemble(out_buffer[0..end])) {
+            if (cs.disassemble(out_buffer[0..end], args.disassembly_threshold)) {
                 inflate_disasm_count += 1;
             }
         } else |_| {}
