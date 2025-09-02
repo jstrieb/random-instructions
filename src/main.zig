@@ -6,7 +6,7 @@ const capstone = @cImport({
 var stdout = std.io.getStdOut().writer();
 var allocator: std.mem.Allocator = undefined;
 
-const Args = struct {
+var args: struct {
     total_iterations: usize = 10_000_000,
     buffer_size: usize = 128,
     disassembly_threshold: usize = 90,
@@ -40,8 +40,7 @@ const Args = struct {
         }
         return result;
     }
-};
-var args: Args = undefined;
+} = .{};
 
 var results: struct {
     disasm_count: u64 = 0,
