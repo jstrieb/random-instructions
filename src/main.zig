@@ -125,6 +125,7 @@ test "basic disassembly" {
     try std.testing.expectEqual(100, cs.disassemble("\x00\x00"));
     try std.testing.expectEqual(0, cs.disassemble("\x00"));
     try std.testing.expectEqual(50, cs.disassemble("\xff\xff\x00\x00"));
+    try std.testing.expectEqual(50, cs.disassemble("\x00\x00\xff\xff\xff\xff\x00\x00"));
 }
 
 fn loop(iterations: usize, buffer_size: usize) !void {
