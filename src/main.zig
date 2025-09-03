@@ -205,12 +205,18 @@ pub fn main() !void {
     var thread_buffer: [1024]std.Thread = undefined;
     const threads = thread_buffer[0..thread_count];
     const iterations = args.total_iterations / thread_count;
-    args.total_iterations = iterations * thread_count;
-    for (threads) |*t| {
+    for (threads, 0..) |*t, i| {
         t.* = try std.Thread.spawn(
             .{},
             loop,
-            .{ iterations, args.buffer_size },
+            .{
+                iterations +
+                    if (i < args.total_iterations % thread_count)
+                        @as(usize, 1)
+                    else
+                        @as(usize, 0),
+                args.buffer_size,
+            },
         );
     }
     for (threads) |t| {
