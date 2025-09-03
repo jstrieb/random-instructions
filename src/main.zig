@@ -17,9 +17,27 @@ var args: struct {
         var result = Self{};
         const all_args = try std.process.argsAlloc(allocator);
         defer std.process.argsFree(allocator, all_args);
-        var i: usize = 0;
+        var i: usize = 1;
         while (i < all_args.len) : (i += 1) {
             const arg = all_args[i];
+            if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
+                try stdout.print("Usage: {s} [options]\n\n", .{all_args[0]});
+                try stdout.print("Options:\n", .{});
+                inline for (@typeInfo(Self).@"struct".fields) |field| {
+                    const flag = try allocator.dupe(u8, field.name);
+                    defer allocator.free(flag);
+                    std.mem.replaceScalar(u8, flag, '_', '-');
+                    switch (field.type) {
+                        bool => try stdout.print("  --{s}\n", .{flag}),
+                        usize => try stdout.print(
+                            "  --{s} N\t\t(default {?any})\n",
+                            .{ flag, field.defaultValue() },
+                        ),
+                        else => unreachable,
+                    }
+                }
+                return error.Help;
+            }
             if (!std.mem.startsWith(u8, arg, "--")) {
                 continue;
             }
@@ -178,7 +196,10 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
     defer std.debug.assert(gpa.deinit() != .leak);
     allocator = gpa.allocator();
-    args = try .init();
+    args = @TypeOf(args).init() catch |err| switch (err) {
+        error.Help => return,
+        else => return err,
+    };
 
     const thread_count = @min(std.Thread.getCpuCount() catch 1, 1024);
     var thread_buffer: [1024]std.Thread = undefined;
