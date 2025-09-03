@@ -23,7 +23,7 @@ pub fn build(b: *std.Build) void {
         "-B",
         "build",
         "-DCMAKE_BUILD_TYPE=Release",
-        "-DCAPSTONE_BUILD_SHARED_LIBS=1",
+        "-DBUILD_SHARED_LIBS=1",
     });
     capstone_cmake.setCwd(capstone_dep.path(""));
     const capstone_make = b.addSystemCommand(&.{ "cmake", "--build", "build" });
