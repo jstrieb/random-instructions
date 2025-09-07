@@ -33,6 +33,7 @@ pub fn build(b: *std.Build) void {
 
     // Add the Capstone lib and include directories so we can import capstone.h
     // and link against the Capstone shared object or DLL
+    exe.linkLibC();
     exe.addLibraryPath(capstone_dep.path("build"));
     exe.linkSystemLibrary("capstone");
     exe.addIncludePath(capstone_dep.path("include"));
