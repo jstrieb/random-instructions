@@ -14,20 +14,28 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "random_instructions",
         .root_module = exe_mod,
+        .linkage = .static,
     });
 
     // Build Capstone
     const capstone_dep = b.dependency("capstone", .{});
+    // CC="zig cc -target aarch64-linux-musl" CXX="zig c++ -target aarch64-linux-musl" cmake -DCAPSTONE_BUILD_TESTS=0 -DCAPSTONE_BUILD_CSTEST=0 -DCAPSTONE_BUILD_CSTOOL=0 ..
     const capstone_cmake = b.addSystemCommand(&.{
         "cmake",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DBUILD_STATIC_LIBS=1",
+        "-DCAPSTONE_BUILD_TESTS=0",
+        "-DCAPSTONE_BUILD_CSTEST=0",
+        "-DCAPSTONE_BUILD_CSTOOL=0",
+        // "-DCAPSTONE_USE_DEFAULT_ALLOC=0",
         "-B",
         "build",
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DBUILD_SHARED_LIBS=1",
     });
+    capstone_cmake.setEnvironmentVariable("CC", "zig cc -target aarch64-linux-musl");
+    capstone_cmake.setEnvironmentVariable("CXX", "zig c++ -target aarch64-linux-musl");
     capstone_cmake.setCwd(capstone_dep.path(""));
-    const capstone_make = b.addSystemCommand(&.{ "cmake", "--build", "build" });
-    capstone_make.setCwd(capstone_dep.path(""));
+    const capstone_make = b.addSystemCommand(&.{ "make", "-j" });
+    capstone_make.setCwd(capstone_dep.path("build"));
     capstone_make.step.dependOn(&capstone_cmake.step);
     exe.step.dependOn(&capstone_make.step);
 
@@ -35,7 +43,12 @@ pub fn build(b: *std.Build) void {
     // and link against the Capstone shared object or DLL
     exe.linkLibC();
     exe.addLibraryPath(capstone_dep.path("build"));
-    exe.linkSystemLibrary("capstone");
+    exe.linkSystemLibrary2("capstone", .{
+        .needed = true,
+        .preferred_link_mode = .static,
+        // Prevent it from using the version of Capstone in /usr/lib
+        .use_pkg_config = .no,
+    });
     exe.addIncludePath(capstone_dep.path("include"));
 
     b.installArtifact(exe);
