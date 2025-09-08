@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{
         .preferred_optimize_mode = .ReleaseFast,
@@ -19,7 +19,6 @@ pub fn build(b: *std.Build) void {
 
     // Build Capstone
     const capstone_dep = b.dependency("capstone", .{});
-    // CC="zig cc -target aarch64-linux-musl" CXX="zig c++ -target aarch64-linux-musl" cmake -DCAPSTONE_BUILD_TESTS=0 -DCAPSTONE_BUILD_CSTEST=0 -DCAPSTONE_BUILD_CSTOOL=0 ..
     const capstone_cmake = b.addSystemCommand(&.{
         "cmake",
         "-DCMAKE_BUILD_TYPE=Release",
@@ -27,12 +26,20 @@ pub fn build(b: *std.Build) void {
         "-DCAPSTONE_BUILD_TESTS=0",
         "-DCAPSTONE_BUILD_CSTEST=0",
         "-DCAPSTONE_BUILD_CSTOOL=0",
-        // "-DCAPSTONE_USE_DEFAULT_ALLOC=0",
         "-B",
         "build",
     });
-    capstone_cmake.setEnvironmentVariable("CC", "zig cc -target aarch64-linux-musl");
-    capstone_cmake.setEnvironmentVariable("CXX", "zig c++ -target aarch64-linux-musl");
+    const target_triple = try target.result.zigTriple(b.allocator);
+    capstone_cmake.setEnvironmentVariable("CC", try std.fmt.allocPrint(
+        b.allocator,
+        "zig cc -target {s}",
+        .{target_triple},
+    ));
+    capstone_cmake.setEnvironmentVariable("CXX", try std.fmt.allocPrint(
+        b.allocator,
+        "zig c++ -target {s}",
+        .{target_triple},
+    ));
     capstone_cmake.setCwd(capstone_dep.path(""));
     const capstone_make = b.addSystemCommand(&.{ "make", "-j" });
     capstone_make.setCwd(capstone_dep.path("build"));
