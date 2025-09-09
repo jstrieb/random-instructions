@@ -10,6 +10,7 @@ var args: struct {
     total_iterations: usize = 10_000_000,
     buffer_size: usize = 128,
     disassembly_threshold: usize = 90,
+    csv: bool = false,
 
     const Self = @This();
 
@@ -81,10 +82,21 @@ var results: struct {
         self.lock.lock();
         defer self.lock.unlock();
 
-        try stdout.print("{d:>10} Total\n", .{args.total_iterations});
-        try stdout.print("{d:>10} Disassembled\n", .{self.disasm_count});
-        try stdout.print("{d:>10} Inflated\n", .{self.inflate_count});
-        try stdout.print("{d:>10} Inflated then disassembled\n", .{self.inflate_disasm_count});
+        if (args.csv) {
+            try stdout.print("Type,Count\r\n", .{});
+            try stdout.print("Total,{d}\r\n", .{args.total_iterations});
+            try stdout.print("Disassembled,{d}\r\n", .{self.disasm_count});
+            try stdout.print("Inflated,{d}\r\n", .{self.inflate_count});
+            try stdout.print("Both,{d}\r\n", .{self.inflate_disasm_count});
+        } else {
+            try stdout.print("{d:>10} Total\n", .{args.total_iterations});
+            try stdout.print("{d:>10} Disassembled\n", .{self.disasm_count});
+            try stdout.print("{d:>10} Inflated\n", .{self.inflate_count});
+            try stdout.print(
+                "{d:>10} Inflated then disassembled\n",
+                .{self.inflate_disasm_count},
+            );
+        }
     }
 } = .{};
 

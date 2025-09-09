@@ -1,10 +1,15 @@
-.PHONY: build
+ZIG_ARGS =
 
-build: | dep-zig
-	zig build -Drelease=true
+.PHONY: build deps
+
+build: zig-out/bin/random_instructions
+
+zig-out/bin/random_instructions: build.zig src/main.zig | dep-zig
+	zig build -Drelease=true $(ZIG_ARGS)
+	-@touch zig-out/bin/random_instructions
 
 
-.PHONY: deps dep-zig dep-npm
+.PHONY: dep-zig dep-npm
 deps: dep-zig dep-npm node_modules
 
 dep-zig:
