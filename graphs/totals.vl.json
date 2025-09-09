@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "data": {
+    "url": "totals.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Type",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Count",
+      "type": "quantitative"
+    }
+  }
+}
+
