@@ -1,12 +1,17 @@
 ZIG_ARGS =
 
-.PHONY: build deps
+.PHONY: build graphs deps
 
 build: zig-out/bin/random_instructions
 
 zig-out/bin/random_instructions: build.zig src/main.zig | dep-zig
 	zig build -Drelease=true $(ZIG_ARGS)
 	-@touch zig-out/bin/random_instructions
+
+graphs: $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json)) | node_modules
+
+graphs/%.svg: graphs/%.vl.json
+	npx vl2svg "$<" "$@"
 
 
 .PHONY: dep-zig dep-npm
