@@ -8,9 +8,9 @@ zig-out/bin/random_instructions: build.zig src/main.zig | dep-zig
 	zig build -Drelease=true $(ZIG_ARGS)
 	-@touch zig-out/bin/random_instructions
 
-graphs: node_modules $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json))
+graphs: $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json))
 
-graphs/%.svg: graphs/%.vl.json
+graphs/%.svg: graphs/%.vl.json | node_modules
 	npx vl2svg "$<" "$@"
 
 
