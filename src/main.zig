@@ -45,11 +45,13 @@ var args: struct {
             std.mem.replaceScalar(u8, arg, '-', '_');
             inline for (@typeInfo(Self).@"struct".fields) |field| {
                 if (std.mem.eql(u8, arg[2..], field.name)) {
-                    switch (field.type) {
-                        bool => @field(result, field.name) = true,
-                        usize => {
-                            @field(result, field.name) =
-                                try std.fmt.parseUnsigned(usize, all_args[i + 1], 0);
+                    switch (@typeInfo(field.type)) {
+                        .bool => @field(result, field.name) = true,
+                        .int => |t| {
+                            @field(result, field.name) = switch (t.signedness) {
+                                .unsigned => try std.fmt.parseUnsigned(field.type, all_args[i + 1], 0),
+                                .signed => try std.fmt.parseSigned(field.type, all_args[i + 1], 0),
+                            };
                             i += 1;
                         },
                         else => unreachable,
