@@ -11,6 +11,7 @@ var args: struct {
     buffer_size: usize = 128,
     disassembly_threshold: usize = 90,
     csv: bool = false,
+    no_csv_header: bool = false,
 
     const Self = @This();
 
@@ -49,8 +50,16 @@ var args: struct {
                         .bool => @field(result, field.name) = true,
                         .int => |t| {
                             @field(result, field.name) = switch (t.signedness) {
-                                .unsigned => try std.fmt.parseUnsigned(field.type, all_args[i + 1], 0),
-                                .signed => try std.fmt.parseSigned(field.type, all_args[i + 1], 0),
+                                .unsigned => try std.fmt.parseUnsigned(
+                                    field.type,
+                                    all_args[i + 1],
+                                    0,
+                                ),
+                                .signed => try std.fmt.parseSigned(
+                                    field.type,
+                                    all_args[i + 1],
+                                    0,
+                                ),
                             };
                             i += 1;
                         },
@@ -71,7 +80,12 @@ var results: struct {
 
     const Self = @This();
 
-    pub fn update(self: *Self, disasm_count: u64, inflate_count: u64, inflate_disasm_count: u64) void {
+    pub fn update(
+        self: *Self,
+        disasm_count: u64,
+        inflate_count: u64,
+        inflate_disasm_count: u64,
+    ) void {
         self.lock.lock();
         defer self.lock.unlock();
 
@@ -85,11 +99,29 @@ var results: struct {
         defer self.lock.unlock();
 
         if (args.csv) {
-            try stdout.print("Type,Count\r\n", .{});
-            try stdout.print("Total,{d}\r\n", .{args.total_iterations});
-            try stdout.print("Disassembled,{d}\r\n", .{self.disasm_count});
-            try stdout.print("Inflated,{d}\r\n", .{self.inflate_count});
-            try stdout.print("Both,{d}\r\n", .{self.inflate_disasm_count});
+            if (!args.no_csv_header) {
+                try stdout.print("Type,Count,Size,Threshold\r\n", .{});
+            }
+            try stdout.print("Total,{d},{d},{d}\r\n", .{
+                args.total_iterations,
+                args.buffer_size,
+                args.disassembly_threshold,
+            });
+            try stdout.print("Disassembled,{d},{d},{d}\r\n", .{
+                self.disasm_count,
+                args.buffer_size,
+                args.disassembly_threshold,
+            });
+            try stdout.print("Inflated,{d},{d},{d}\r\n", .{
+                self.inflate_count,
+                args.buffer_size,
+                args.disassembly_threshold,
+            });
+            try stdout.print("Both,{d},{d},{d}\r\n", .{
+                self.inflate_disasm_count,
+                args.buffer_size,
+                args.disassembly_threshold,
+            });
         } else {
             try stdout.print("{d:>10} Total\n", .{args.total_iterations});
             try stdout.print("{d:>10} Disassembled\n", .{self.disasm_count});
