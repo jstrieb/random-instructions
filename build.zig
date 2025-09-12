@@ -17,7 +17,10 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
     const exe = b.addExecutable(.{
-        .name = "random_instructions",
+        .name = try std.mem.concat(b.allocator, u8, &[_][]const u8{
+            "random_instructions",
+            if (static) "_static" else "",
+        }),
         .root_module = exe_mod,
         .linkage = if (static) .static else null,
     });
