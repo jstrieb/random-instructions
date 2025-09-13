@@ -10,7 +10,7 @@ zig-out/bin/random_instructions: build.zig src/main.zig | dep-zig
 
 graphs: $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json))
 
-graphs/%.svg: graphs/%.vl.json | node_modules
+graphs/%.svg: graphs/%.vl.json graphs/thresholds.csv | node_modules
 	npx vl2svg "$<" "$@"
 
 
