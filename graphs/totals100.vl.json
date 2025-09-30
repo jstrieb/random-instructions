@@ -15,6 +15,6 @@
       "type": "quantitative"
     }
   },
-  "transform": [ {"filter": "datum.Threshold == 95 && datum.Size == 128"} ]
+  "transform": [ {"filter": "datum.Threshold == 100 && datum.Size == 128"} ]
 }
 
