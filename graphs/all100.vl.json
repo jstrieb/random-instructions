@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "data": {
+    "url": "thresholds.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Size",
+      "sort": null
+    },
+    "y": {
+      "field": "Count",
+      "type": "quantitative"
+    }
+  },
+  "transform": [ {"filter": "datum.Type == 'Disassembled' && datum.Size > 4 && datum.Threshold == 100"} ]
+}
+
