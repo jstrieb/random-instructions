@@ -78,6 +78,8 @@ var results: struct {
     inflate_count: u64 = 0,
     inflate_disasm_count: u64 = 0,
     lock: std.Thread.Mutex = .{},
+    err: ?anyerror = null,
+    architecture: []const u8,
 
     const Self = @This();
 
@@ -101,29 +103,34 @@ var results: struct {
 
         if (args.csv) {
             if (!args.no_csv_header) {
-                try stdout.print("Type,Count,Size,Threshold\r\n", .{});
+                try stdout.print("Type,Count,Size,Threshold,Architecture\r\n", .{});
             }
-            try stdout.print("Total,{d},{d},{d}\r\n", .{
+            try stdout.print("Total,{d},{d},{d},{s}\r\n", .{
                 args.total_iterations,
                 args.buffer_size,
                 args.disassembly_threshold,
+                self.architecture,
             });
-            try stdout.print("Disassembled,{d},{d},{d}\r\n", .{
+            try stdout.print("Disassembled,{d},{d},{d},{s}\r\n", .{
                 self.disasm_count,
                 args.buffer_size,
                 args.disassembly_threshold,
+                self.architecture,
             });
-            try stdout.print("Inflated,{d},{d},{d}\r\n", .{
+            try stdout.print("Inflated,{d},{d},{d},{s}\r\n", .{
                 self.inflate_count,
                 args.buffer_size,
                 args.disassembly_threshold,
+                self.architecture,
             });
-            try stdout.print("Both,{d},{d},{d}\r\n", .{
+            try stdout.print("Both,{d},{d},{d},{s}\r\n", .{
                 self.inflate_disasm_count,
                 args.buffer_size,
                 args.disassembly_threshold,
+                self.architecture,
             });
         } else {
+            try stdout.print("{s}\n", .{self.architecture});
             try stdout.print("{d:>10} Total\n", .{args.total_iterations});
             try stdout.print("{d:>10} Disassembled\n", .{self.disasm_count});
             try stdout.print("{d:>10} Inflated\n", .{self.inflate_count});
@@ -191,8 +198,51 @@ test "basic disassembly" {
     try std.testing.expectEqual(50, cs.disassemble("\x00\x00\xff\xff\xff\xff\x00\x00"));
 }
 
-fn loop(iterations: usize, buffer_size: usize) !void {
-    var cs: Capstone = try .init(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB);
+const Arch = struct {
+    arch: capstone.cs_arch,
+    name: [:0]const u8,
+};
+
+const all_architectures = architectures: {
+    var num: usize = 0;
+    @setEvalBranchQuota(1_000_000);
+    for (@typeInfo(capstone).@"struct".decls) |decl| {
+        if (std.mem.startsWith(u8, decl.name, "CS_ARCH_")) {
+            num += 1;
+        }
+    }
+
+    var architectures: [num]?Arch = undefined;
+    var i: usize = 0;
+    for (@typeInfo(capstone).@"struct".decls) |decl| {
+        if (std.mem.startsWith(u8, decl.name, "CS_ARCH_")) {
+            architectures[i] = Arch{
+                .arch = @field(capstone, decl.name),
+                .name = decl.name,
+            };
+            i += 1;
+        }
+    }
+    break :architectures architectures;
+};
+
+fn loop(arch: ?Arch, iterations: usize, buffer_size: usize) !void {
+    var cs: Capstone = undefined;
+    if (arch) |a| {
+        cs = Capstone.init(a.arch, 0) catch |err| {
+            results.lock.lock();
+            defer results.lock.unlock();
+            results.err = err;
+            return;
+        };
+    } else {
+        cs = Capstone.init(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB) catch |err| {
+            results.lock.lock();
+            defer results.lock.unlock();
+            results.err = err;
+            return;
+        };
+    }
     defer cs.deinit();
 
     var random = random: {
@@ -246,26 +296,42 @@ pub fn main() !void {
         else => return err,
     };
 
+    const no_architectures = [_]?Arch{null};
+    const arches: []const ?Arch = if (args.all_architectures)
+        @ptrCast(&all_architectures)
+    else
+        &no_architectures;
+
     const thread_count = @min(std.Thread.getCpuCount() catch 1, 1024);
     var thread_buffer: [1024]std.Thread = undefined;
     const threads = thread_buffer[0..thread_count];
     const iterations = args.total_iterations / thread_count;
-    for (threads, 0..) |*t, i| {
-        t.* = try std.Thread.spawn(
-            .{},
-            loop,
-            .{
-                iterations +
-                    if (i < args.total_iterations % thread_count)
-                        @as(usize, 1)
-                    else
-                        @as(usize, 0),
-                args.buffer_size,
-            },
-        );
+    arches: for (arches) |a| {
+        results = .{
+            .architecture = if (a) |arch| arch.name else "CS_ARCH_THUMB",
+        };
+        for (threads, 0..) |*t, i| {
+            t.* = try std.Thread.spawn(
+                .{},
+                loop,
+                .{
+                    a,
+                    iterations +
+                        if (i < args.total_iterations % thread_count)
+                            @as(usize, 1)
+                        else
+                            @as(usize, 0),
+                    args.buffer_size,
+                },
+            );
+        }
+        for (threads) |t| {
+            t.join();
+        }
+        if (results.err) |err| switch (err) {
+            error.CapstoneInitFailed => continue :arches,
+            else => return err,
+        } else {}
+        try results.print();
     }
-    for (threads) |t| {
-        t.join();
-    }
-    try results.print();
 }
