@@ -12,6 +12,7 @@ var args: struct {
     disassembly_threshold: usize = 90,
     csv: bool = false,
     no_csv_header: bool = false,
+    all_architectures: bool = false,
 
     const Self = @This();
 
@@ -132,57 +133,55 @@ var results: struct {
             );
         }
     }
-} = .{};
+} = undefined;
 
-fn Capstone(arch: capstone.cs_arch, mode: c_int) type {
-    return struct {
-        engine: capstone.csh,
-        const Self = @This();
+const Capstone = struct {
+    engine: capstone.csh,
+    const Self = @This();
 
-        pub fn init() !Self {
-            var engine: capstone.csh = undefined;
-            if (capstone.cs_open(arch, mode, &engine) != capstone.CS_ERR_OK) {
-                return error.CapstoneInitFailed;
-            }
-            if (capstone.cs_option(
-                engine,
-                capstone.CS_OPT_SKIPDATA,
-                capstone.CS_OPT_ON,
-            ) != capstone.CS_ERR_OK) {
-                return error.CapstoneInitFailed;
-            }
-            return .{ .engine = engine };
+    pub fn init(arch: capstone.cs_arch, mode: c_uint) !Self {
+        var engine: capstone.csh = undefined;
+        if (capstone.cs_open(arch, mode, &engine) != capstone.CS_ERR_OK) {
+            return error.CapstoneInitFailed;
         }
-
-        pub fn deinit(self: *Self) void {
-            _ = capstone.cs_close(&self.engine);
+        if (capstone.cs_option(
+            engine,
+            capstone.CS_OPT_SKIPDATA,
+            capstone.CS_OPT_ON,
+        ) != capstone.CS_ERR_OK) {
+            return error.CapstoneInitFailed;
         }
+        return .{ .engine = engine };
+    }
 
-        pub fn disassemble(self: Self, b: []const u8) usize {
-            if (b.len == 0) return 0;
-            var instructions: [*c]capstone.cs_insn = undefined;
-            const count = capstone.cs_disasm(
-                self.engine,
-                @ptrCast(b),
-                b.len,
-                0,
-                0,
-                &instructions,
-            );
-            defer capstone.cs_free(instructions, count);
-            var instruction_bytes: usize = 0;
-            for (instructions, 0..count) |i, _| {
-                if (i.id != 0) {
-                    instruction_bytes += i.size;
-                }
+    pub fn deinit(self: *Self) void {
+        _ = capstone.cs_close(&self.engine);
+    }
+
+    pub fn disassemble(self: Self, b: []const u8) usize {
+        if (b.len == 0) return 0;
+        var instructions: [*c]capstone.cs_insn = undefined;
+        const count = capstone.cs_disasm(
+            self.engine,
+            @ptrCast(b),
+            b.len,
+            0,
+            0,
+            &instructions,
+        );
+        defer capstone.cs_free(instructions, count);
+        var instruction_bytes: usize = 0;
+        for (instructions, 0..count) |i, _| {
+            if (i.id != 0) {
+                instruction_bytes += i.size;
             }
-            return 100 * instruction_bytes / b.len;
         }
-    };
-}
+        return 100 * instruction_bytes / b.len;
+    }
+};
 
 test "basic disassembly" {
-    var cs: Capstone(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB) = try .init();
+    var cs: Capstone = try .init(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB);
     defer cs.deinit();
 
     try std.testing.expectEqual(100, cs.disassemble("\xe0\xf9\x4f\x07"));
@@ -193,7 +192,7 @@ test "basic disassembly" {
 }
 
 fn loop(iterations: usize, buffer_size: usize) !void {
-    var cs: Capstone(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB) = try .init();
+    var cs: Capstone = try .init(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB);
     defer cs.deinit();
 
     var random = random: {
