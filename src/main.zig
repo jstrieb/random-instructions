@@ -103,7 +103,7 @@ var results: struct {
 
         if (args.csv) {
             if (!args.no_csv_header) {
-                try stdout.print("Type,Count,Size,Threshold,Architecture\r\n", .{});
+                try stdout.print("Type,Count,Size,Threshold,Architecture,Mode\r\n", .{});
             }
             try stdout.print("Total,{d},{d},{d},{s}\r\n", .{
                 args.total_iterations,
@@ -200,49 +200,146 @@ test "basic disassembly" {
 
 const Arch = struct {
     arch: capstone.cs_arch,
+    mode: capstone.cs_mode,
     name: [:0]const u8,
 };
 
-const all_architectures = architectures: {
-    var num: usize = 0;
+const num_architectures: usize = num_architectures: {
+    var result: usize = 0;
     @setEvalBranchQuota(1_000_000);
     for (@typeInfo(capstone).@"struct".decls) |decl| {
         if (std.mem.startsWith(u8, decl.name, "CS_ARCH_")) {
-            num += 1;
+            result += 1;
         }
     }
+    break :num_architectures result;
+};
 
-    var architectures: [num]?Arch = undefined;
+const modes: [num_architectures][]const []const u8 = modes: {
+    var result: [num_architectures][]const []const u8 =
+        .{&[_][]const u8{}} ** num_architectures;
+    result[capstone.CS_ARCH_ARM] = &[_][]const u8{
+        "CS_MODE_ARM",
+        "CS_MODE_THUMB",
+        "CS_MODE_MCLASS",
+        "CS_MODE_V8",
+    };
+    result[capstone.CS_ARCH_MIPS] = &[_][]const u8{
+        "CS_MODE_32",
+        "CS_MODE_64",
+    };
+    result[capstone.CS_ARCH_X86] = &[_][]const u8{
+        "CS_MODE_32",
+        "CS_MODE_64",
+    };
+    result[capstone.CS_ARCH_PPC] = &[_][]const u8{
+        "CS_MODE_32",
+        "CS_MODE_64",
+        "CS_MODE_QPX",
+        "CS_MODE_PS",
+    };
+    result[capstone.CS_ARCH_SYSZ] = &[_][]const u8{
+        "CS_MODE_LITTLE_ENDIAN",
+    };
+    result[capstone.CS_ARCH_XCORE] = &[_][]const u8{
+        "CS_MODE_LITTLE_ENDIAN",
+    };
+    result[capstone.CS_ARCH_M68K] = &[_][]const u8{
+        "CS_MODE_LITTLE_ENDIAN",
+        "CS_MODE_M68K_000",
+        "CS_MODE_M68K_010",
+        "CS_MODE_M68K_020",
+        "CS_MODE_M68K_030",
+        "CS_MODE_M68K_040",
+        "CS_MODE_M68K_060",
+    };
+    result[capstone.CS_ARCH_TMS320C64X] = &[_][]const u8{
+        "CS_MODE_LITTLE_ENDIAN",
+    };
+    result[capstone.CS_ARCH_M680X] = &[_][]const u8{
+        "CS_MODE_LITTLE_ENDIAN",
+        "CS_MODE_M680X_6301",
+        "CS_MODE_M680X_6309",
+        "CS_MODE_M680X_6800",
+        "CS_MODE_M680X_6801",
+        "CS_MODE_M680X_6805",
+        "CS_MODE_M680X_6808",
+        "CS_MODE_M680X_6809",
+        "CS_MODE_M680X_6811",
+        "CS_MODE_M680X_CPU12",
+        "CS_MODE_M680X_HCS08",
+    };
+    result[capstone.CS_ARCH_EVM] = &[_][]const u8{
+        "CS_MODE_LITTLE_ENDIAN",
+    };
+    result[capstone.CS_ARCH_MOS65XX] = &[_][]const u8{
+        "CS_MODE_MOS65XX_65C02",
+        "CS_MODE_MOS65XX_W65C02",
+        "CS_MODE_MOS65XX_65816",
+        "CS_MODE_MOS65XX_65816_LONG_M",
+        "CS_MODE_MOS65XX_65816_LONG_X",
+        "CS_MODE_MOS65XX_65816_LONG_MX",
+    };
+    result[capstone.CS_ARCH_WASM] = &[_][]const u8{
+        "CS_MODE_LITTLE_ENDIAN",
+    };
+    result[capstone.CS_ARCH_RISCV] = &[_][]const u8{
+        "CS_MODE_RISCVC",
+    };
+    result[capstone.CS_ARCH_SH] = &[_][]const u8{
+        "CS_MODE_SH2",
+        "CS_MODE_SH3",
+        "CS_MODE_SH4",
+        "CS_MODE_SH4A",
+        "CS_MODE_SHFPU",
+        "CS_MODE_SHDSP",
+    };
+    result[capstone.CS_ARCH_TRICORE] = &[_][]const u8{
+        "CS_MODE_TRICORE_120",
+        "CS_MODE_TRICORE_160",
+        "CS_MODE_TRICORE_161",
+        "CS_MODE_TRICORE_162",
+    };
+    break :modes result;
+};
+
+const all_architectures = architectures: {
+    var architectures: [
+        num: {
+            var result: usize = 0;
+            for (modes) |mode| {
+                result += mode.len;
+            }
+            break :num result;
+        }
+    ]Arch = undefined;
     var i: usize = 0;
+    @setEvalBranchQuota(1_000_000);
     for (@typeInfo(capstone).@"struct".decls) |decl| {
         if (std.mem.startsWith(u8, decl.name, "CS_ARCH_")) {
-            architectures[i] = Arch{
-                .arch = @field(capstone, decl.name),
-                .name = decl.name,
-            };
-            i += 1;
+            const arch = @field(capstone, decl.name);
+            if (arch >= modes.len) continue;
+            for (modes[arch]) |mode| {
+                architectures[i] = Arch{
+                    .arch = arch,
+                    .mode = @field(capstone, mode),
+                    .name = decl.name ++ "," ++ mode,
+                };
+                i += 1;
+            }
         }
     }
     break :architectures architectures;
 };
 
-fn loop(arch: ?Arch, iterations: usize, buffer_size: usize) !void {
+fn loop(arch: Arch, iterations: usize, buffer_size: usize) !void {
     var cs: Capstone = undefined;
-    if (arch) |a| {
-        cs = Capstone.init(a.arch, 0) catch |err| {
-            results.lock.lock();
-            defer results.lock.unlock();
-            results.err = err;
-            return;
-        };
-    } else {
-        cs = Capstone.init(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB) catch |err| {
-            results.lock.lock();
-            defer results.lock.unlock();
-            results.err = err;
-            return;
-        };
-    }
+    cs = Capstone.init(arch.arch, arch.mode) catch |err| {
+        results.lock.lock();
+        defer results.lock.unlock();
+        results.err = err;
+        return;
+    };
     defer cs.deinit();
 
     var random = random: {
@@ -269,19 +366,21 @@ fn loop(arch: ?Arch, iterations: usize, buffer_size: usize) !void {
             disasm_count += 1;
         }
 
-        in_stream.seekTo(0) catch unreachable;
-        out_stream.seekTo(0) catch unreachable;
-        if (std.compress.flate.inflate.decompress(
-            .raw,
-            in_stream.reader(),
-            out_stream.writer(),
-        )) {
-            inflate_count += 1;
-            const end = out_stream.getPos() catch unreachable;
-            if (cs.disassemble(out_buffer[0..end]) >= args.disassembly_threshold) {
-                inflate_disasm_count += 1;
-            }
-        } else |_| {}
+        if (arch.arch == capstone.CS_ARCH_ARM and arch.mode == capstone.CS_MODE_THUMB) {
+            in_stream.seekTo(0) catch unreachable;
+            out_stream.seekTo(0) catch unreachable;
+            if (std.compress.flate.inflate.decompress(
+                .raw,
+                in_stream.reader(),
+                out_stream.writer(),
+            )) {
+                inflate_count += 1;
+                const end = out_stream.getPos() catch unreachable;
+                if (cs.disassemble(out_buffer[0..end]) >= args.disassembly_threshold) {
+                    inflate_disasm_count += 1;
+                }
+            } else |_| {}
+        }
     }
 
     results.update(disasm_count, inflate_count, inflate_disasm_count);
@@ -296,26 +395,29 @@ pub fn main() !void {
         else => return err,
     };
 
-    const no_architectures = [_]?Arch{null};
-    const arches: []const ?Arch = if (args.all_architectures)
-        @ptrCast(&all_architectures)
+    const arches: []const Arch = if (args.all_architectures)
+        &all_architectures
     else
-        &no_architectures;
+        &[_]Arch{
+            .{
+                .arch = capstone.CS_ARCH_ARM,
+                .mode = capstone.CS_MODE_THUMB,
+                .name = "CS_ARCH_ARM,CS_MODE_THUMB",
+            },
+        };
 
     const thread_count = @min(std.Thread.getCpuCount() catch 1, 1024);
     var thread_buffer: [1024]std.Thread = undefined;
     const threads = thread_buffer[0..thread_count];
     const iterations = args.total_iterations / thread_count;
-    arches: for (arches) |a| {
-        results = .{
-            .architecture = if (a) |arch| arch.name else "CS_ARCH_THUMB",
-        };
+    arches: for (arches) |arch| {
+        results = .{ .architecture = arch.name };
         for (threads, 0..) |*t, i| {
             t.* = try std.Thread.spawn(
                 .{},
                 loop,
                 .{
-                    a,
+                    arch,
                     iterations +
                         if (i < args.total_iterations % thread_count)
                             @as(usize, 1)
