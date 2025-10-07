@@ -1,0 +1,22 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "data": {
+    "url": "architectures.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Instruction Set Architecture",
+      "sort": "-y"
+    },
+    "y": {
+      "field": "Count",
+      "type": "quantitative",
+      "aggregate": "max"
+    }
+  },
+  "transform": [ 
+    {"filter": "datum.Type == 'Disassembled' && datum.Size == 128 && datum.Threshold == 95"},
+    {"calculate": "replace(datum.Architecture, 'CS_ARCH_', '')", "as": "Instruction Set Architecture"}
+  ]
+}

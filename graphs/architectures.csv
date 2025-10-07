@@ -1,4 +1,4 @@
-Type,Count,Size,Threshold,Architecture
+Type,Count,Size,Threshold,Architecture,Mode
 Total,10000000,2,100,CS_ARCH_ARM,CS_MODE_ARM
 Disassembled,0,2,100,CS_ARCH_ARM,CS_MODE_ARM
 Inflated,0,2,100,CS_ARCH_ARM,CS_MODE_ARM
