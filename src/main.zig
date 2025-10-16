@@ -3,7 +3,7 @@ const parse_arguments = @import("argparse.zig").parse_arguments;
 const Capstone = @import("capstone.zig");
 const capstone_c = Capstone.capstone;
 
-var stdout = std.io.getStdOut().writer();
+var stdout: @TypeOf(std.io.getStdOut().writer()) = undefined;
 var allocator: std.mem.Allocator = undefined;
 
 var args: struct {
@@ -145,6 +145,7 @@ fn loop(arch: Capstone.Arch, iterations: usize, buffer_size: usize) !void {
 }
 
 pub fn main() !void {
+    stdout = std.io.getStdOut().writer();
     var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
     defer std.debug.assert(gpa.deinit() != .leak);
     allocator = gpa.allocator();

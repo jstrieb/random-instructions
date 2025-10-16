@@ -36,25 +36,8 @@ pub fn build(b: *std.Build) !void {
         "make",
         "-j",
         "CAPSTONE_BUILD_CORE_ONLY=yes",
-        try std.fmt.allocPrint(
-            b.allocator,
-            "VERSION_EXT={s}",
-            .{switch (target.result.os.tag) {
-                .windows => "dll",
-                .macos => "dylib",
-                else => "so",
-            }},
-        ),
-        try std.fmt.allocPrint(
-            b.allocator,
-            "CAPSTONE_STATIC={s}",
-            .{if (static) "yes" else "no"},
-        ),
-        try std.fmt.allocPrint(
-            b.allocator,
-            "CAPSTONE_SHARED={s}",
-            .{if (static) "no" else "yes"},
-        ),
+        "CAPSTONE_STATIC=yes",
+        "CAPSTONE_SHARED=no",
         "RANLIB=zig ranlib",
         "AR=zig ar",
         try std.fmt.allocPrint(
@@ -67,11 +50,14 @@ pub fn build(b: *std.Build) !void {
             "CXX=zig c++ -target {s}",
             .{target_triple},
         ),
-        try std.fmt.allocPrint(
-            b.allocator,
-            "LIBARCHS={s}",
-            .{@tagName(target.result.cpu.arch)},
-        ),
+        if (target.result.os.tag == .macos)
+            try std.fmt.allocPrint(
+                b.allocator,
+                "LIBARCHS={s}",
+                .{@tagName(target.result.cpu.arch)},
+            )
+        else
+            "LIBARCHS=",
     });
     capstone_make.step.dependOn(&capstone_clean.step);
     capstone_make.setCwd(capstone_dep.path(""));
@@ -83,7 +69,7 @@ pub fn build(b: *std.Build) !void {
     exe.addLibraryPath(capstone_dep.path(""));
     exe.linkSystemLibrary2("capstone", .{
         .needed = true,
-        .preferred_link_mode = if (static) .static else .dynamic,
+        .preferred_link_mode = .static,
         // Prevent it from using the version of Capstone in /usr/lib
         .use_pkg_config = .no,
     });
