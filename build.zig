@@ -32,51 +32,55 @@ pub fn build(b: *std.Build) !void {
     });
     capstone_clean.setCwd(capstone_dep.path(""));
     const target_triple = try target.result.zigTriple(b.allocator);
-    const build_dir = try std.fmt.allocPrint(
-        b.allocator,
-        "build-{s}",
-        .{target_triple},
-    );
-    const capstone_cmake = b.addSystemCommand(&.{
-        "cmake",
-        "-DCMAKE_BUILD_TYPE=Release",
+    const capstone_make = b.addSystemCommand(&.{
+        "make",
+        "-j",
+        "CAPSTONE_BUILD_CORE_ONLY=yes",
         try std.fmt.allocPrint(
             b.allocator,
-            "-DBUILD_SHARED_LIBS={d}",
-            .{if (static) @as(u32, 0) else @as(u32, 1)},
+            "VERSION_EXT={s}",
+            .{switch (target.result.os.tag) {
+                .windows => "dll",
+                .macos => "dylib",
+                else => "so",
+            }},
         ),
         try std.fmt.allocPrint(
             b.allocator,
-            "-DBUILD_STATIC_LIBS={d}",
-            .{if (static) @as(u32, 1) else @as(u32, 0)},
+            "CAPSTONE_STATIC={s}",
+            .{if (static) "yes" else "no"},
         ),
-        "-DCAPSTONE_BUILD_TESTS=0",
-        "-DCAPSTONE_BUILD_CSTEST=0",
-        "-DCAPSTONE_BUILD_CSTOOL=0",
-        "-B",
-        build_dir,
+        try std.fmt.allocPrint(
+            b.allocator,
+            "CAPSTONE_SHARED={s}",
+            .{if (static) "no" else "yes"},
+        ),
+        "RANLIB=zig ranlib",
+        "AR=zig ar",
+        try std.fmt.allocPrint(
+            b.allocator,
+            "CC=zig cc -target {s}",
+            .{target_triple},
+        ),
+        try std.fmt.allocPrint(
+            b.allocator,
+            "CXX=zig c++ -target {s}",
+            .{target_triple},
+        ),
+        try std.fmt.allocPrint(
+            b.allocator,
+            "LIBARCHS={s}",
+            .{@tagName(target.result.cpu.arch)},
+        ),
     });
-    capstone_cmake.step.dependOn(&capstone_clean.step);
-    capstone_cmake.setEnvironmentVariable("CC", try std.fmt.allocPrint(
-        b.allocator,
-        "zig cc -target {s}",
-        .{target_triple},
-    ));
-    capstone_cmake.setEnvironmentVariable("CXX", try std.fmt.allocPrint(
-        b.allocator,
-        "zig c++ -target {s}",
-        .{target_triple},
-    ));
-    capstone_cmake.setCwd(capstone_dep.path(""));
-    const capstone_make = b.addSystemCommand(&.{ "make", "-j" });
-    capstone_make.setCwd(capstone_dep.path(build_dir));
-    capstone_make.step.dependOn(&capstone_cmake.step);
+    capstone_make.step.dependOn(&capstone_clean.step);
+    capstone_make.setCwd(capstone_dep.path(""));
     exe.step.dependOn(&capstone_make.step);
 
     // Add the Capstone lib and include directories so we can import capstone.h
     // and link against the Capstone shared object or DLL
     exe.linkLibC();
-    exe.addLibraryPath(capstone_dep.path(build_dir));
+    exe.addLibraryPath(capstone_dep.path(""));
     exe.linkSystemLibrary2("capstone", .{
         .needed = true,
         .preferred_link_mode = if (static) .static else .dynamic,
