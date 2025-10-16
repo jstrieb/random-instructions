@@ -7,6 +7,7 @@
   "encoding": {
     "x": {
       "field": "Threshold",
+      "title": "Threshold (%)",
       "type": "quantitative",
       "sort": "descending"
     },
@@ -16,6 +17,7 @@
     },
     "color": {
       "field": "Size",
+      "title": "Size (bytes)",
       "sort": null
     }
   },
