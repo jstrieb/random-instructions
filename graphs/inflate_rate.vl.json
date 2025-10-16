@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "data": {
+    "url": "thresholds.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Size",
+      "sort": null,
+      "title": "Buffer Size (bytes)"
+    },
+    "y": {
+      "field": "Percentage",
+      "type": "quantitative",
+      "title": "Percent Decompressed (%)"
+    }
+  },
+  "transform": [ 
+    {"filter": "datum.Type == 'Decompressed' && datum.Threshold == 100"},
+    {"calculate": "datum.Count / 1000000000 * 100", "as": "Percentage"}
+  ]
+}
