@@ -12,12 +12,13 @@
     },
     "y": {
       "field": "Percentage",
+      "axis": {"format": ".2%"},
       "type": "quantitative",
-      "title": "Percent Decompressed (%)"
+      "title": "Buffers Decompressed"
     }
   },
   "transform": [ 
     {"filter": "datum.Type == 'Decompressed' && datum.Threshold == 100"},
-    {"calculate": "datum.Count / 1000000000 * 100", "as": "Percentage"}
+    {"calculate": "datum.Count / 1000000000", "as": "Percentage"}
   ]
 }

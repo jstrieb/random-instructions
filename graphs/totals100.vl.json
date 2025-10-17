@@ -11,10 +11,15 @@
       "sort": null
     },
     "y": {
-      "field": "Count",
+      "field": "Percent",
+      "axis": {"format": ".0%"},
+      "title": "Successes",
       "type": "quantitative"
     }
   },
-  "transform": [ {"filter": "datum.Threshold == 100 && datum.Size == 128"} ]
+  "transform": [ 
+    {"filter": "datum.Threshold == 100 && datum.Size == 128"},
+    {"calculate": "datum.Count / 1000000000", "as": "Percent"}
+  ]
 }
 

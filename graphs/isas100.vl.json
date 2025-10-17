@@ -10,13 +10,16 @@
       "sort": "-y"
     },
     "y": {
-      "field": "Count",
+      "field": "Percent",
+      "title": "Buffers Disassembled",
+      "axis": {"format": ".0%"},
       "type": "quantitative",
       "aggregate": "max"
     }
   },
   "transform": [ 
     {"filter": "datum.Type == 'Disassembled' && datum.Size == 4 && datum.Threshold == 100"},
-    {"calculate": "replace(datum.Architecture, 'CS_ARCH_', '')", "as": "Instruction Set Architecture"}
+    {"calculate": "replace(datum.Architecture, 'CS_ARCH_', '')", "as": "Instruction Set Architecture"},
+    {"calculate": "datum.Count / 10000000", "as": "Percent"}
   ]
 }

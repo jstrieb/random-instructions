@@ -6,13 +6,16 @@
   "mark": "line",
   "encoding": {
     "x": {
-      "field": "Threshold",
-      "title": "Threshold (%)",
+      "field": "Threshold Scaled",
+      "title": "Minimum Disassembly Threshold",
+      "axis": {"format": ".0%"},
       "type": "quantitative",
       "sort": "descending"
     },
     "y": {
-      "field": "Count",
+      "field": "Percent",
+      "title": "Buffers Disassembled",
+      "axis": {"format": ".0%"},
       "type": "quantitative"
     },
     "color": {
@@ -21,6 +24,10 @@
       "sort": null
     }
   },
-  "transform": [ {"filter": "datum.Type == 'Disassembled' && datum.Size > 4"} ]
+  "transform": [ 
+    {"filter": "datum.Type == 'Disassembled' && datum.Size > 4"},
+    {"calculate": "datum.Threshold / 100", "as": "Threshold Scaled"},
+    {"calculate": "datum.Count / 1000000000", "as": "Percent"}
+  ]
 }
 

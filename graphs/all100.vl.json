@@ -11,10 +11,15 @@
       "sort": null
     },
     "y": {
-      "field": "Count",
+      "field": "Percent",
+      "title": "Buffers Disassembled",
+      "axis": {"format": ".0%"},
       "type": "quantitative"
     }
   },
-  "transform": [ {"filter": "datum.Type == 'Disassembled' && datum.Size > 4 && datum.Threshold == 100"} ]
+  "transform": [ 
+    {"filter": "datum.Type == 'Disassembled' && datum.Size > 4 && datum.Threshold == 100"},
+    {"calculate": "datum.Count / 1000000000", "as": "Percent"}
+  ]
 }
 
