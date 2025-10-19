@@ -87,7 +87,6 @@ pub fn build(b: *std.Build) !void {
         .use_pkg_config = .no,
     });
     exe.addIncludePath(capstone_dep.path("include"));
-
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -97,6 +96,24 @@ pub fn build(b: *std.Build) !void {
     }
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
+
+    const inflate = b.addExecutable(.{
+        .name = "random_inflate",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/inflate.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+        .linkage = if (static) .static else null,
+    });
+    b.installArtifact(inflate);
+
+    const run_inflate = b.addRunArtifact(inflate);
+    run_inflate.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        run_inflate.addArgs(args);
+    }
+    b.step("run-inflate", "Run the inflate simulation").dependOn(&run_inflate.step);
 
     const exe_tests = b.addTest(.{ .root_module = exe_mod });
     const run_tests = b.addRunArtifact(exe_tests);
