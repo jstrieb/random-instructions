@@ -15,9 +15,59 @@ var args: struct {
     }
 } = undefined;
 
-fn loop() !void {
-    const iterations = args.total_iterations;
+const NullReader = std.io.Reader(void, error{}, struct {
+    pub fn read(_: void, _: []u8) !usize {
+        return 0;
+    }
+}.read);
 
+const errors = errors: {
+    const error_set = @typeInfo(
+        @typeInfo(
+            @TypeOf(result: {
+                var in_stream = std.io.fixedBufferStream(&[_]u8{});
+                var out_stream = std.io.fixedBufferStream(@constCast(&[_]u8{}));
+                break :result std.compress.flate.inflate.decompress(
+                    .raw,
+                    in_stream.reader(),
+                    out_stream.writer(),
+                );
+            }),
+        ).error_union.error_set,
+    ).error_set.?;
+    const num_errors = error_set.len;
+    var result: [num_errors]anyerror = undefined;
+    for (error_set, 0..) |err, i| {
+        result[i] = @field(anyerror, err.name);
+    }
+    break :errors result;
+};
+
+var results: struct {
+    counts: [errors.len]usize = [_]usize{0} ** errors.len,
+    lock: std.Thread.Mutex = .{},
+
+    const Self = @This();
+
+    pub fn update(self: *Self, new_counts: @TypeOf(self.counts)) void {
+        self.lock.lock();
+        defer self.lock.unlock();
+        for (&self.counts, new_counts) |*old, new| {
+            old.* += new;
+        }
+    }
+
+    pub fn print(self: *Self) !void {
+        self.lock.lock();
+        defer self.lock.unlock();
+        try stdout.print("Error,Count\r\n", .{});
+        for (errors, self.counts) |e, c| {
+            try stdout.print("{s},{d}\r\n", .{ @errorName(e), c });
+        }
+    }
+} = .{};
+
+fn loop(iterations: usize) !void {
     var random = random: {
         var seed: [std.Random.ChaCha.secret_seed_length]u8 = undefined;
         std.crypto.random.bytes(&seed);
@@ -32,23 +82,6 @@ fn loop() !void {
     var in_stream = std.io.fixedBufferStream(in_buffer);
     var out_stream = std.io.fixedBufferStream(out_buffer);
 
-    const errors = comptime errors: {
-        const error_set = @typeInfo(
-            @typeInfo(
-                @TypeOf(std.compress.flate.inflate.decompress(
-                    .raw,
-                    in_stream.reader(),
-                    out_stream.writer(),
-                )),
-            ).error_union.error_set,
-        ).error_set.?;
-        const num_errors = error_set.len;
-        var result: [num_errors]anyerror = undefined;
-        for (error_set, 0..) |err, i| {
-            result[i] = @field(anyerror, err.name);
-        }
-        break :errors result;
-    };
     var counts = [_]usize{0} ** errors.len;
 
     for (0..iterations) |_| {
@@ -73,10 +106,7 @@ fn loop() !void {
         }
     }
 
-    std.debug.print("Error,Count\r\n", .{});
-    for (errors, counts) |e, c| {
-        std.debug.print("{s},{d}\r\n", .{ @errorName(e), c });
-    }
+    results.update(counts);
 }
 
 pub fn main() !void {
@@ -89,5 +119,25 @@ pub fn main() !void {
         else => return err,
     };
 
-    try loop();
+    const thread_count = @min(std.Thread.getCpuCount() catch 1, 1024);
+    var thread_buffer: [1024]std.Thread = undefined;
+    const threads = thread_buffer[0..thread_count];
+    const iterations = args.total_iterations / thread_count;
+
+    for (threads, 0..) |*t, i| {
+        t.* = try std.Thread.spawn(
+            .{},
+            loop,
+            .{
+                iterations + @as(
+                    usize,
+                    (if (i < args.total_iterations % thread_count) 1 else 0),
+                ),
+            },
+        );
+    }
+    for (threads) |t| {
+        t.join();
+    }
+    try results.print();
 }
