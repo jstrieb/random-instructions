@@ -22,11 +22,10 @@ const errors = errors: {
         @typeInfo(
             @TypeOf(result: {
                 var in_stream = std.io.fixedBufferStream(&[_]u8{});
-                var out_stream = std.io.fixedBufferStream(@constCast(&[_]u8{}));
                 break :result std.compress.flate.inflate.decompress(
                     .raw,
                     in_stream.reader(),
-                    out_stream.writer(),
+                    std.io.NullWriter{ .context = {} },
                 );
             }),
         ).error_union.error_set,
@@ -82,10 +81,7 @@ fn loop(iterations: usize, first_three_bits: ?u3) !void {
 
     const in_buffer = try allocator.alloc(u8, args.buffer_size);
     defer allocator.free(in_buffer);
-    const out_buffer = try allocator.alloc(u8, args.buffer_size * 1024);
-    defer allocator.free(out_buffer);
     var in_stream = std.io.fixedBufferStream(in_buffer);
-    var out_stream = std.io.fixedBufferStream(out_buffer);
 
     var inflate_count: usize = 0;
     var counts = [_]usize{0} ** errors.len;
@@ -99,11 +95,10 @@ fn loop(iterations: usize, first_three_bits: ?u3) !void {
         }
 
         in_stream.seekTo(0) catch unreachable;
-        out_stream.seekTo(0) catch unreachable;
         if (std.compress.flate.inflate.decompress(
             .raw,
             in_stream.reader(),
-            out_stream.writer(),
+            std.io.NullWriter{ .context = {} },
         )) {
             inflate_count += 1;
         } else |e| {
