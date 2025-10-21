@@ -8,6 +8,7 @@ var args: struct {
     total_iterations: usize = 10_000_000,
     buffer_size: usize = 128,
     first_three_bits: ?u3 = null,
+    no_csv_header: bool = false,
 
     const Self = @This();
 
@@ -58,14 +59,16 @@ var results: struct {
         }
     }
 
-    pub fn print(self: *Self) !void {
+    pub fn print(self: *Self, bits: ?u3) !void {
         self.lock.lock();
         defer self.lock.unlock();
-        try stdout.print("Error,Count\r\n", .{});
-        for (errors, self.counts) |e, c| {
-            try stdout.print("{s},{d}\r\n", .{ @errorName(e), c });
+        if (!args.no_csv_header) {
+            try stdout.print("Error,Count,Bits\r\n", .{});
         }
-        try stdout.print("Successes,{d}\r\n", .{self.successes});
+        for (errors, self.counts) |e, c| {
+            try stdout.print("{s},{d},{?d}\r\n", .{ @errorName(e), c, bits });
+        }
+        try stdout.print("Successes,{d},{?d}\r\n", .{ self.successes, bits });
     }
 } = .{};
 
@@ -145,5 +148,5 @@ pub fn main() !void {
     for (threads) |t| {
         t.join();
     }
-    try results.print();
+    try results.print(args.first_three_bits);
 }

@@ -2,16 +2,28 @@ ZIG_ARGS =
 
 .PHONY: build graphs deps
 
-build: zig-out/bin/random_instructions
+build: zig-out/bin/random_instructions zig-out/bin/random_inflate
 
-zig-out/bin/random_instructions: build.zig src/main.zig | dep-zig
+zig-out/bin/random_instructions zig-out/bin/random_inflate: build.zig src/*.zig | dep-zig
 	zig build -Drelease=true $(ZIG_ARGS)
-	-@touch zig-out/bin/random_instructions
+	-touch "$@"
 
 graphs: $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json))
 
-graphs/%.svg: graphs/%.vl.json $(wildcard graphs/*.csv) | node_modules
+graphs/%.svg: graphs/%.vl.json graphs/*.csv | node_modules
 	npx vl2svg "$<" "$@"
+
+graphs/inflate.csv: zig-out/bin/random_inflate
+	time ./zig-out/bin/random_inflate --total-iterations 1_000_000_000 \
+		| tee graphs/inflate.csv
+	( \
+		for I in $$(seq 0 7); do \
+			time ./zig-out/bin/random_inflate \
+				--total-iterations 1_000_000_000 \
+				--no-csv-header \
+				--first-three-bits "$${I}" ; \
+		done \
+	) | tee -a graphs/inflate.csv
 
 
 .PHONY: dep-zig dep-npm
