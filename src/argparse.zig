@@ -12,14 +12,10 @@ fn print_help(
         const flag = try allocator.dupe(u8, field.name);
         defer allocator.free(flag);
         std.mem.replaceScalar(u8, flag, '_', '-');
-        switch (@typeInfo(field.type)) {
+        switch (@typeInfo(strip_optional(field.type))) {
             .bool => try stdout.print("  --{s}\n", .{flag}),
             .int => try stdout.print(
                 "  --{s} N\t\t(default {?any})\n",
-                .{ flag, field.defaultValue() },
-            ),
-            .optional => try stdout.print(
-                "  --{s} [VALUE]\t\t(default {?any})\n",
                 .{ flag, field.defaultValue() },
             ),
             else => unreachable,
