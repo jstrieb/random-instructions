@@ -40,13 +40,19 @@ const errors = errors: {
 
 var results: struct {
     counts: [errors.len]usize = [_]usize{0} ** errors.len,
+    successes: usize = 0,
     lock: std.Thread.Mutex = .{},
 
     const Self = @This();
 
-    pub fn update(self: *Self, new_counts: @TypeOf(self.counts)) void {
+    pub fn update(
+        self: *Self,
+        new_counts: @TypeOf(self.counts),
+        successes: usize,
+    ) void {
         self.lock.lock();
         defer self.lock.unlock();
+        self.successes += successes;
         for (&self.counts, new_counts) |*old, new| {
             old.* += new;
         }
@@ -59,10 +65,11 @@ var results: struct {
         for (errors, self.counts) |e, c| {
             try stdout.print("{s},{d}\r\n", .{ @errorName(e), c });
         }
+        try stdout.print("Successes,{d}\r\n", .{self.successes});
     }
 } = .{};
 
-fn loop(iterations: usize) !void {
+fn loop(iterations: usize, first_three_bits: ?u3) !void {
     var random = random: {
         var seed: [std.Random.ChaCha.secret_seed_length]u8 = undefined;
         std.crypto.random.bytes(&seed);
@@ -77,13 +84,16 @@ fn loop(iterations: usize) !void {
     var in_stream = std.io.fixedBufferStream(in_buffer);
     var out_stream = std.io.fixedBufferStream(out_buffer);
 
+    var inflate_count: usize = 0;
     var counts = [_]usize{0} ** errors.len;
 
     for (0..iterations) |_| {
         random.bytes(in_buffer);
 
-        // in_buffer[0] &= 0b11111000;
-        // in_buffer[0] |= 0b00000011;
+        if (first_three_bits) |bits| {
+            in_buffer[0] &= 0b11111000;
+            in_buffer[0] |= bits;
+        }
 
         in_stream.seekTo(0) catch unreachable;
         out_stream.seekTo(0) catch unreachable;
@@ -92,16 +102,16 @@ fn loop(iterations: usize) !void {
             in_stream.reader(),
             out_stream.writer(),
         )) {
-            // inflate_count += 1;
+            inflate_count += 1;
         } else |e| {
             const i = i: inline for (errors, 0..) |err, i| {
-                if (@intFromError(err) == @intFromError(e)) break :i i;
+                if (err == e) break :i i;
             } else unreachable;
             counts[i] += 1;
         }
     }
 
-    results.update(counts);
+    results.update(counts, inflate_count);
 }
 
 pub fn main() !void {
@@ -128,6 +138,7 @@ pub fn main() !void {
                     usize,
                     (if (i < args.total_iterations % thread_count) 1 else 0),
                 ),
+                args.first_three_bits,
             },
         );
     }
