@@ -7,6 +7,7 @@ var allocator: std.mem.Allocator = undefined;
 var args: struct {
     total_iterations: usize = 10_000_000,
     buffer_size: usize = 128,
+    first_three_bits: ?u3 = null,
 
     const Self = @This();
 
@@ -14,12 +15,6 @@ var args: struct {
         return try parse_arguments(Self, allocator, stdout);
     }
 } = undefined;
-
-const NullReader = std.io.Reader(void, error{}, struct {
-    pub fn read(_: void, _: []u8) !usize {
-        return 0;
-    }
-}.read);
 
 const errors = errors: {
     const error_set = @typeInfo(
