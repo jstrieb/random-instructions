@@ -1,0 +1,24 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "data": {
+    "url": "inflate.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Error",
+      "sort": "-y",
+      "title": "Error Type"
+    },
+    "y": {
+      "field": "Percentage",
+      "title": "Rate of Failure",
+      "axis": {"format": ".0%"},
+      "type": "quantitative"
+    }
+  },
+  "transform": [ 
+    {"filter": "datum.Count > 0 && datum.Bits == 'null' && datum.Error != 'Successes'"},
+    {"calculate": "datum.Count / 1000000000", "as": "Percentage"}
+  ]
+}

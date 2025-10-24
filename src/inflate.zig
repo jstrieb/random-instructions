@@ -67,7 +67,7 @@ var results: struct {
         for (errors, self.counts) |e, c| {
             try stdout.print("{s},{d},{?d}\r\n", .{ @errorName(e), c, bits });
         }
-        try stdout.print("Successes,{d},{?d}\r\n", .{ self.successes, bits });
+        try stdout.print("Success,{d},{?d}\r\n", .{ self.successes, bits });
     }
 } = .{};
 
