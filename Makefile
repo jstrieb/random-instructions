@@ -13,9 +13,47 @@ graphs: $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json))
 graphs/%.svg: graphs/%.vl.json graphs/*.csv | node_modules
 	npx vl2svg "$<" "$@"
 
+graphs/totals.csv: zig-out/bin/random_instructions
+	time ./zig-out/bin/random_instructions \
+		--total-iterations 1_000_000_000 \
+		--disassembly-threshold 95 \
+		--csv \
+	| tee "$@"
+
+graphs/thresholds.csv: zig-out/bin/random_instructions
+	printf '%s\r\n' 'Type,Count,Size,Threshold,Architecture,Mode' > "$@"
+	( \
+		for SIZE in 2 4 8 16 32 64 128 256 512 1024; do \
+			for THRESHOLD in $$(seq 100 -5 60); do \
+				time ./zig-out/bin/random_instructions \
+					--total-iterations 1_000_000_000 \
+					--disassembly-threshold "$${THRESHOLD}" \
+					--buffer-size "$${SIZE}" \
+					--csv \
+					--no-csv-header ; \
+			done ; \
+		done \
+	) | tee -a "$@"
+
+graphs/architectures.csv: zig-out/bin/random_instructions
+	printf '%s\r\n' 'Type,Count,Size,Threshold,Architecture,Mode' > "$@"
+	( \
+		for SIZE in 2 4 8 16 32 64 128 256 512 1024; do \
+			for THRESHOLD in $$(seq 100 -5 70); do \
+				time ./zig-out/bin/random_instructions \
+					--total-iterations 1_000_000_000 \
+					--disassembly-threshold "$${THRESHOLD}" \
+					--buffer-size "$${SIZE}" \
+					--csv \
+					--no-csv-header \
+					--all-architectures ; \
+			done ; \
+		done \
+	) | tee -a "$@"
+
 graphs/inflate.csv: zig-out/bin/random_inflate
 	time ./zig-out/bin/random_inflate --total-iterations 1_000_000_000 \
-		| tee graphs/inflate.csv
+		| tee "$@"
 	( \
 		for I in $$(seq 0 7); do \
 			time ./zig-out/bin/random_inflate \
@@ -23,7 +61,7 @@ graphs/inflate.csv: zig-out/bin/random_inflate
 				--no-csv-header \
 				--first-three-bits "$${I}" ; \
 		done \
-	) | tee -a graphs/inflate.csv
+	) | tee -a "$@"
 
 
 .PHONY: dep-zig dep-npm
