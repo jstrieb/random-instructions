@@ -2,13 +2,13 @@ ZIG_ARGS =
 
 .PHONY: build graphs deps
 
+graphs: $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json))
+
 build: zig-out/bin/random_instructions zig-out/bin/random_inflate
 
 zig-out/bin/random_instructions zig-out/bin/random_inflate: build.zig src/*.zig | dep-zig
 	zig build -Drelease=true $(ZIG_ARGS)
 	-touch "$@"
-
-graphs: $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json))
 
 graphs/%.svg: graphs/%.vl.json graphs/*.csv | node_modules
 	npx vl2svg "$<" "$@"
