@@ -7,8 +7,9 @@ var allocator: std.mem.Allocator = undefined;
 var args: struct {
     total_iterations: usize = 10_000_000,
     buffer_size: usize = 128,
-    first_three_bits: ?u3 = null,
     no_csv_header: bool = false,
+    first_bits: ?u8 = null,
+    num_bits: ?u3 = null,
 
     const Self = @This();
 
@@ -58,7 +59,7 @@ var results: struct {
         }
     }
 
-    pub fn print(self: *Self, bits: ?u3) !void {
+    pub fn print(self: *Self, bits: ?u8) !void {
         self.lock.lock();
         defer self.lock.unlock();
         if (!args.no_csv_header) {
@@ -71,7 +72,7 @@ var results: struct {
     }
 } = .{};
 
-fn loop(iterations: usize, first_three_bits: ?u3) !void {
+fn loop(iterations: usize, first_bits: ?u8, num_bits: ?u3) !void {
     var random = random: {
         var seed: [std.Random.ChaCha.secret_seed_length]u8 = undefined;
         std.crypto.random.bytes(&seed);
@@ -86,12 +87,15 @@ fn loop(iterations: usize, first_three_bits: ?u3) !void {
     var inflate_count: usize = 0;
     var counts = [_]usize{0} ** errors.len;
 
+    const and_mask = @as(u8, 0b1111_1111) << (num_bits orelse 0);
+    const or_mask = (@as(u8, 0b1) << (num_bits orelse 0)) - 1;
+
     for (0..iterations) |_| {
         random.bytes(in_buffer);
 
-        if (first_three_bits) |bits| {
-            in_buffer[0] &= 0b11111000;
-            in_buffer[0] |= bits;
+        if (first_bits) |bits| {
+            in_buffer[0] &= and_mask;
+            in_buffer[0] |= (bits & or_mask);
         }
 
         in_stream.seekTo(0) catch unreachable;
@@ -136,12 +140,13 @@ pub fn main() !void {
                     usize,
                     (if (i < args.total_iterations % thread_count) 1 else 0),
                 ),
-                args.first_three_bits,
+                args.first_bits,
+                args.num_bits,
             },
         );
     }
     for (threads) |t| {
         t.join();
     }
-    try results.print(args.first_three_bits);
+    try results.print(args.first_bits);
 }

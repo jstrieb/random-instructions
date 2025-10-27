@@ -59,7 +59,8 @@ graphs/inflate.csv: zig-out/bin/random_inflate
 			time ./zig-out/bin/random_inflate \
 				--total-iterations 1_000_000_000 \
 				--no-csv-header \
-				--first-three-bits "$${I}" ; \
+				--num-bits 3 \
+				--first-bits "$${I}" ; \
 		done \
 	) | tee -a "$@"
 
