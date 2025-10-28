@@ -1,0 +1,32 @@
+Error,Count,Bits,Number of Bits
+EndOfStream,4113,0,1
+BadGzipHeader,0,0,1
+BadZlibHeader,0,0,1
+WrongGzipChecksum,0,0,1
+WrongGzipSize,0,0,1
+WrongZlibChecksum,0,0,1
+InvalidCode,26574767,0,1
+OversubscribedHuffmanTree,146737762,0,1
+IncompleteHuffmanTree,74398039,0,1
+MissingEndOfBlockCode,96424,0,1
+InvalidMatch,215816449,0,1
+InvalidBlockType,252495113,0,1
+WrongStoredBlockNlen,252530381,0,1
+InvalidDynamicBlockHeader,31290580,0,1
+Success,56372,0,1
+Error,Count,Bits,Number of Bits
+EndOfStream,3935,1,1
+BadGzipHeader,0,1,1
+BadZlibHeader,0,1,1
+WrongGzipChecksum,0,1,1
+WrongGzipSize,0,1,1
+WrongZlibChecksum,0,1,1
+InvalidCode,26283441,1,1
+OversubscribedHuffmanTree,145281110,1,1
+IncompleteHuffmanTree,73635423,1,1
+MissingEndOfBlockCode,95216,1,1
+InvalidMatch,213698259,1,1
+InvalidBlockType,249999800,1,1
+WrongStoredBlockNlen,250005035,1,1
+InvalidDynamicBlockHeader,30987133,1,1
+Success,10010648,1,1

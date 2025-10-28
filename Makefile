@@ -8,7 +8,7 @@ build: zig-out/bin/random_instructions zig-out/bin/random_inflate
 
 zig-out/bin/random_instructions zig-out/bin/random_inflate: build.zig src/*.zig | dep-zig
 	zig build -Drelease=true $(ZIG_ARGS)
-	-touch "$@"
+	-@touch "$@"
 
 graphs/%.svg: graphs/%.vl.json graphs/*.csv | node_modules
 	npx vl2svg "$<" "$@"
@@ -63,6 +63,18 @@ graphs/inflate.csv: zig-out/bin/random_inflate
 				--first-bits "$${I}" ; \
 		done \
 	) | tee -a "$@"
+
+graphs/inflate_1_bit.csv: zig-out/bin/random_inflate
+	time ./zig-out/bin/random_inflate \
+			--total-iterations 1_000_000_000 \
+			--first-bits 0b0 \
+			--num-bits 1 \
+		| tee "$@"
+	time ./zig-out/bin/random_inflate \
+			--total-iterations 1_000_000_000 \
+			--first-bits 0b1 \
+			--num-bits 1 \
+		| tee -a "$@"
 
 
 .PHONY: dep-zig dep-npm

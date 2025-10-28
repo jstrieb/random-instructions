@@ -59,16 +59,16 @@ var results: struct {
         }
     }
 
-    pub fn print(self: *Self, bits: ?u8) !void {
+    pub fn print(self: *Self, bits: ?u8, num_bits: ?u3) !void {
         self.lock.lock();
         defer self.lock.unlock();
         if (!args.no_csv_header) {
-            try stdout.print("Error,Count,Bits\r\n", .{});
+            try stdout.print("Error,Count,Bits,Number of Bits\r\n", .{});
         }
         for (errors, self.counts) |e, c| {
-            try stdout.print("{s},{d},{?d}\r\n", .{ @errorName(e), c, bits });
+            try stdout.print("{s},{d},{?d},{?d}\r\n", .{ @errorName(e), c, bits, num_bits });
         }
-        try stdout.print("Success,{d},{?d}\r\n", .{ self.successes, bits });
+        try stdout.print("Success,{d},{?d},{?d}\r\n", .{ self.successes, bits, num_bits });
     }
 } = .{};
 
@@ -148,5 +148,5 @@ pub fn main() !void {
     for (threads) |t| {
         t.join();
     }
-    try results.print(args.first_bits);
+    try results.print(args.first_bits, args.num_bits);
 }
