@@ -1,6 +1,6 @@
 ZIG_ARGS =
 
-.PHONY: build graphs deps
+.PHONY: build graphs table deps
 
 graphs: $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json))
 
@@ -76,19 +76,35 @@ graphs/inflate_1_bit.csv: zig-out/bin/random_inflate
 			--num-bits 1 \
 		| tee -a "$@"
 
+table: $(CSV)
+	@test -n '$(CSV)' || ( \
+		printf '%s\n' 'Missing required argument CSV=?' >&2 ; \
+		exit 1 ; \
+	)
+	cat '$(CSV)' \
+		| sed 's/\([A-Z]\)/ \1/g' \
+		| sed 's/Of/of/g' \
+		| sed 's/^ //g' \
+		| sed 's/  */ /g' \
+		| sed 's.\([^,]*\),\([^,]*\),\([^,]*\)\r.<tr><td>\1</td><td style="text-align: right;">\2</td><td style="text-align: right;">\3</td></tr>.g' \
+		| sed 's/\([0-9]\)\([0-9][0-9][0-9]\)\([^0-9]\)/\1,\2\3/g' \
+		| sed 's/\([0-9]\)\([0-9][0-9][0-9]\)\([^0-9]\)/\1,\2\3/g' \
+		| sed 's/\([0-9]\)\([0-9][0-9][0-9]\)\([^0-9]\)/\1,\2\3/g' \
+		| sed 's/\([0-9]\)\([0-9][0-9][0-9]\)\([^0-9]\)/\1,\2\3/g'
+
 
 .PHONY: dep-zig dep-npm
 deps: dep-zig dep-npm node_modules
 
 dep-zig:
 	@zig version 2>&1 | grep '0\.14\.[0-9]' 2>&1 >/dev/null || ( \
-		echo 'Zig v0.14.* required' >&2 ; \
+		printf '%s\n' 'Zig v0.14.* required' >&2 ; \
 		exit 1 ; \
 	)
 
 dep-npm:
 	@npm --version 2>&1 >/dev/null || ( \
-		echo 'NPM required' >&2 ; \
+		printf '%s\n' 'NPM required' >&2 ; \
 		exit 1 ; \
 	)
 
