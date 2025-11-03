@@ -76,6 +76,14 @@ graphs/inflate_1_bit.csv: zig-out/bin/random_inflate
 			--num-bits 1 \
 		| tee -a "$@"
 
+graphs/totals_static_tree.csv: zig-out/bin/random_instructions
+	time ./zig-out/bin/random_instructions \
+		--total-iterations 1_000_000_000 \
+		--disassembly-threshold 100 \
+		--csv \
+		--static-huffman \
+	| tee "$@"
+
 table: $(CSV)
 	@test -n '$(CSV)' || ( \
 		printf '%s\n' 'Missing required argument CSV=?' >&2 ; \

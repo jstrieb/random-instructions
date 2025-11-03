@@ -1,0 +1,28 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "data": {
+    "url": "totals_static_tree.csv"
+  },
+  "config": {
+    "legend": { "labelLimit": 420 },
+    "axis": { "labelLimit": 420 }
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Type",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Percent",
+      "axis": {"format": ".0%"},
+      "title": "Successes",
+      "type": "quantitative"
+    }
+  },
+  "transform": [ 
+    {"filter": "datum.Type != 'Total'"},
+    {"calculate": "datum.Count / 1000000000", "as": "Percent"}
+  ]
+}

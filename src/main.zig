@@ -13,6 +13,7 @@ var args: struct {
     csv: bool = false,
     no_csv_header: bool = false,
     all_architectures: bool = false,
+    static_huffman: bool = false,
 
     const Self = @This();
 
@@ -65,7 +66,7 @@ var results: struct {
                 args.disassembly_threshold,
                 self.architecture,
             });
-            try stdout.print("Inflated,{d},{d},{d},{s}\r\n", .{
+            try stdout.print("Decompressed,{d},{d},{d},{s}\r\n", .{
                 self.inflate_count,
                 args.buffer_size,
                 args.disassembly_threshold,
@@ -90,7 +91,12 @@ var results: struct {
     }
 } = undefined;
 
-fn loop(arch: Capstone.Arch, iterations: usize, buffer_size: usize) !void {
+fn loop(
+    arch: Capstone.Arch,
+    iterations: usize,
+    buffer_size: usize,
+    static_huffman: bool,
+) !void {
     var cs: Capstone = undefined;
     cs = Capstone.init(arch.arch, arch.mode) catch |err| {
         results.lock.lock();
@@ -125,6 +131,11 @@ fn loop(arch: Capstone.Arch, iterations: usize, buffer_size: usize) !void {
         }
 
         if (arch.arch == capstone_c.CS_ARCH_ARM and arch.mode == capstone_c.CS_MODE_THUMB) {
+            if (static_huffman) {
+                in_buffer[0] &= 0b11111000;
+                in_buffer[0] |= 0b00000011;
+            }
+
             in_stream.seekTo(0) catch unreachable;
             out_stream.seekTo(0) catch unreachable;
             if (std.compress.flate.inflate.decompress(
@@ -182,6 +193,7 @@ pub fn main() !void {
                         (if (i < args.total_iterations % thread_count) 1 else 0),
                     ),
                     args.buffer_size,
+                    args.static_huffman,
                 },
             );
         }
