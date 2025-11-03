@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
   "data": {
-    "url": "inflate_1_bit.csv"
+    "url": "inflate.csv"
   },
   "mark": "bar",
   "encoding": {
@@ -18,14 +18,17 @@
     },
     "color": {
       "field": "Bits",
-      "title": "First Bit"
+      "title": "First Three Bits",
+      "legend": { 
+        "labelExpr": "datum.value == 3 ? 'Static Huffman Code' : 'Dynamic Huffman Code'"
+      }
     },
     "xOffset": {
       "field": "Bits"
     }
   },
   "transform": [ 
-    {"filter": "datum.Count > 0 && datum.Error != 'Success'"},
+    {"filter": "datum.Count > 0 && datum.Error != 'Success' && (datum.Bits == 3 || datum.Bits == 5)"},
     {"calculate": "datum.Count / 1000000000", "as": "Percentage"}
   ]
 }
