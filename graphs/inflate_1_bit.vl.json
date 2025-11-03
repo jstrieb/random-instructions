@@ -3,6 +3,10 @@
   "data": {
     "url": "inflate_1_bit.csv"
   },
+  "config": {
+    "legend": { "labelLimit": 420 },
+    "axis": { "labelLimit": 420 }
+  },
   "mark": "bar",
   "encoding": {
     "x": {
