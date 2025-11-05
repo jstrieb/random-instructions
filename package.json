@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "vega": "^6.1.2",
-    "vega-lite": "^6.3.0"
+    "vega-lite": "^6.3.0",
+    "vega-cli": "^6.2.0"
   }
 }
