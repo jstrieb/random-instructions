@@ -4,3 +4,7 @@ zig-out
 *.swo
 node_modules
 graphs/*.svg
+paper/graphs/*.pdf
+paper/paper.*
+!paper/paper.md
+!paper/paper.pdf

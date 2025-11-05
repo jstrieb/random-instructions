@@ -1,14 +1,27 @@
 ZIG_ARGS =
 
-.PHONY: build graphs table deps
+.PHONY: paper graphs build table deps
 
-graphs: $(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json))
+paper: paper/paper.pdf
 
-build: zig-out/bin/random_instructions zig-out/bin/random_inflate
+paper/paper.pdf: paper/paper.tex paper/graphs/*.pdf paper/zig.xml | dep-latex
+	latexmk -cd -pdf "$<"
 
-zig-out/bin/random_instructions zig-out/bin/random_inflate: build.zig src/*.zig | dep-zig
-	zig build -Drelease=true $(ZIG_ARGS)
-	-@touch "$@"
+paper/paper.tex: paper/paper.md | dep-pandoc
+	pandoc "$<" \
+		--standalone \
+		--syntax-definition=paper/zig.xml \
+		--output "$@"
+
+paper/graphs/%.pdf: graphs/%.vl.json graphs/*.csv paper/graphs | node_modules
+	npx vl2pdf "$<" "$@"
+
+paper/graphs:
+	mkdir -p "$@"
+
+graphs: \
+	$(patsubst %.vl.json,%.svg,$(wildcard graphs/*.vl.json)) \
+	$(patsubst %.vl.json,paper/%.pdf,$(wildcard graphs/*.vl.json))
 
 graphs/%.svg: graphs/%.vl.json graphs/*.csv | node_modules
 	npx vl2svg "$<" "$@"
@@ -84,6 +97,12 @@ graphs/totals_static_tree.csv: zig-out/bin/random_instructions
 		--static-huffman \
 	| tee "$@"
 
+build: zig-out/bin/random_instructions zig-out/bin/random_inflate
+
+zig-out/bin/random_instructions zig-out/bin/random_inflate: build.zig src/*.zig | dep-zig
+	zig build -Drelease=true $(ZIG_ARGS)
+	-@touch "$@"
+
 table: $(CSV)
 	@test -n '$(CSV)' || ( \
 		printf '%s\n' 'Missing required argument CSV=?' >&2 ; \
@@ -101,8 +120,8 @@ table: $(CSV)
 		| sed 's/\([0-9]\)\([0-9][0-9][0-9]\)\([^0-9]\)/\1,\2\3/g'
 
 
-.PHONY: dep-zig dep-npm
-deps: dep-zig dep-npm node_modules
+.PHONY: dep-zig dep-npm dep-latex dep-pandoc
+deps: dep-zig dep-npm node_modules dep-latex dep-pandoc
 
 dep-zig:
 	@zig version 2>&1 | grep '0\.14\.[0-9]' 2>&1 >/dev/null || ( \
@@ -118,4 +137,20 @@ dep-npm:
 
 node_modules: package.json package-lock.json | dep-npm
 	npm ci
+
+dep-latex: 
+	@latexmk --version 2>&1 >/dev/null || ( \
+		printf '%s\n' 'Latexmk required' >&2 ; \
+		exit 1 ; \
+	)
+	@pdflatex --version 2>&1 >/dev/null || ( \
+		printf '%s\n' 'pdfTeX required' >&2 ; \
+		exit 1 ; \
+	)
+
+dep-pandoc: 
+	@pandoc --version 2>&1 >/dev/null || ( \
+		printf '%s\n' 'Pandoc required' >&2 ; \
+		exit 1 ; \
+	)
 

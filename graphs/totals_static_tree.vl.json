@@ -16,7 +16,7 @@
     },
     "y": {
       "field": "Percent",
-      "axis": {"format": ".0%"},
+      "axis": {"format": ".01%"},
       "title": "Successes",
       "type": "quantitative"
     }
