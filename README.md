@@ -46,4 +46,7 @@ That being said, if you want to continue the research, [I would love to hear
 about your results over email or via my website's contact
 form](https://jstrieb.github.io/about#contact).
 
+# More Cool Stuff
 
+If you liked this work, you should [check out some of my other
+projects](https://jstrieb.github.io/projects).
